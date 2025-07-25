@@ -1,177 +1,111 @@
 import os
-import logging
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash
 from datetime import datetime
-import uuid
+from supabase.client import Client, create_client  # create_client는 여전히 유틸 함수로 제공됨 (v2.17 기준)
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
 
-# Create Flask app
+# Supabase 연결 정보 (본인 프로젝트 정보로 수정)
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://qcbrfdohpgemzzlzfphx.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjYnJmZG9ocGdlbXp6bHpmcGh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM0MzAyNjMsImV4cCI6MjA2OTAwNjI2M30.f5XyWFvyDdwRv-jZCXQ0JsEfJfpsq7PHrysQA2Tm9K4")
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-change-in-production")
 
-# In-memory storage for todos
-todos = []
-
-class Todo:
-    def __init__(self, title, description=""):
-        self.id = str(uuid.uuid4())
-        self.title = title.strip()
-        self.description = description.strip()
-        self.completed = False
-        self.created_at = datetime.now()
-        self.updated_at = datetime.now()
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'title': self.title,
-            'description': self.description,
-            'completed': self.completed,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat()
-        }
-    
-    def update(self, title=None, description=None, completed=None):
-        if title is not None:
-            self.title = title.strip()
-        if description is not None:
-            self.description = description.strip()
-        if completed is not None:
-            self.completed = completed
-        self.updated_at = datetime.now()
-
-def find_todo_by_id(todo_id):
-    """Find a todo by its ID"""
-    for todo in todos:
-        if todo.id == todo_id:
-            return todo
-    return None
-
 def get_filtered_todos(filter_type='all'):
-    """Get todos based on filter type"""
     if filter_type == 'active':
-        return [todo for todo in todos if not todo.completed]
+        res = supabase.table("todos").select("*").eq("is_complete", False).order("created_at", desc=True).execute()
     elif filter_type == 'completed':
-        return [todo for todo in todos if todo.completed]
-    else:  # 'all'
-        return todos
+        res = supabase.table("todos").select("*").eq("is_complete", True).order("created_at", desc=True).execute()
+    else:
+        res = supabase.table("todos").select("*").order("created_at", desc=True).execute()
+    return res.data if res.data else []
+
+def get_counts():
+    all_todos = supabase.table("todos").select("*").execute().data or []
+    active_count = len([t for t in all_todos if not t.get("is_complete")])
+    completed_count = len([t for t in all_todos if t.get("is_complete")])
+    return len(all_todos), active_count, completed_count
 
 @app.route('/')
 def index():
-    """Main page showing all todos"""
     filter_type = request.args.get('filter', 'all')
-    filtered_todos = get_filtered_todos(filter_type)
-    
-    # Sort todos by creation date (newest first)
-    filtered_todos.sort(key=lambda x: x.created_at, reverse=True)
-    
+    todos = get_filtered_todos(filter_type)
+    total_count, active_count, completed_count = get_counts()
     return render_template('index.html', 
-                         todos=filtered_todos, 
+                         todos=todos, 
                          current_filter=filter_type,
-                         total_count=len(todos),
-                         active_count=len([t for t in todos if not t.completed]),
-                         completed_count=len([t for t in todos if t.completed]))
+                         total_count=total_count,
+                         active_count=active_count,
+                         completed_count=completed_count)
 
 @app.route('/add', methods=['POST'])
 def add_todo():
-    """Add a new todo"""
     title = request.form.get('title', '').strip()
     description = request.form.get('description', '').strip()
-    
     if not title:
         flash('Task title is required!', 'error')
         return redirect(url_for('index'))
-    
     if len(title) > 200:
         flash('Task title must be less than 200 characters!', 'error')
         return redirect(url_for('index'))
-    
-    # Create new todo
-    new_todo = Todo(title, description)
-    todos.append(new_todo)
-    
+    data = {"title": title, "is_complete": False, "created_at": datetime.utcnow().isoformat()}
+    supabase.table("todos").insert(data).execute()
     flash(f'Task "{title}" added successfully!', 'success')
     return redirect(url_for('index'))
 
-@app.route('/toggle/<todo_id>', methods=['POST'])
+@app.route('/toggle/<int:todo_id>', methods=['POST'])
 def toggle_todo(todo_id):
-    """Toggle completion status of a todo"""
-    todo = find_todo_by_id(todo_id)
-    
-    if not todo:
+    res = supabase.table("todos").select("is_complete").eq("id", todo_id).single().execute()
+    if not res.data:
         flash('Task not found!', 'error')
         return redirect(url_for('index'))
-    
-    todo.update(completed=not todo.completed)
-    status = 'completed' if todo.completed else 'active'
+    new_status = not res.data["is_complete"]
+    supabase.table("todos").update({"is_complete": new_status}).eq("id", todo_id).execute()
+    status = 'completed' if new_status else 'active'
     flash(f'Task marked as {status}!', 'success')
-    
     return redirect(url_for('index', filter=request.form.get('filter', 'all')))
 
-@app.route('/delete/<todo_id>', methods=['POST'])
+@app.route('/delete/<int:todo_id>', methods=['POST'])
 def delete_todo(todo_id):
-    """Delete a todo"""
-    todo = find_todo_by_id(todo_id)
-    
-    if not todo:
+    res = supabase.table("todos").delete().eq("id", todo_id).execute()
+    if res.count == 0:
         flash('Task not found!', 'error')
-        return redirect(url_for('index'))
-    
-    todos.remove(todo)
-    flash(f'Task "{todo.title}" deleted successfully!', 'success')
-    
+    else:
+        flash('Task deleted successfully!', 'success')
     return redirect(url_for('index', filter=request.form.get('filter', 'all')))
 
-@app.route('/edit/<todo_id>', methods=['POST'])
+@app.route('/edit/<int:todo_id>', methods=['POST'])
 def edit_todo(todo_id):
-    """Edit an existing todo"""
-    todo = find_todo_by_id(todo_id)
-    
-    if not todo:
-        flash('Task not found!', 'error')
-        return redirect(url_for('index'))
-    
     title = request.form.get('title', '').strip()
     description = request.form.get('description', '').strip()
-    
     if not title:
         flash('Task title is required!', 'error')
         return redirect(url_for('index'))
-    
     if len(title) > 200:
         flash('Task title must be less than 200 characters!', 'error')
         return redirect(url_for('index'))
-    
-    todo.update(title=title, description=description)
-    flash(f'Task updated successfully!', 'success')
-    
+    update_data = {"title": title}
+    supabase.table("todos").update(update_data).eq("id", todo_id).execute()
+    flash('Task updated successfully!', 'success')
     return redirect(url_for('index', filter=request.form.get('filter', 'all')))
 
 @app.route('/clear-completed', methods=['POST'])
 def clear_completed():
-    """Delete all completed todos"""
-    global todos
-    completed_todos = [todo for todo in todos if todo.completed]
-    todos = [todo for todo in todos if not todo.completed]
-    
-    count = len(completed_todos)
+    res = supabase.table("todos").delete().eq("is_complete", True).execute()
+    count = res.count or 0
     if count > 0:
         flash(f'{count} completed task(s) cleared!', 'success')
     else:
         flash('No completed tasks to clear!', 'info')
-    
     return redirect(url_for('index'))
 
 @app.errorhandler(404)
 def not_found(error):
-    """Handle 404 errors"""
     return render_template('index.html', todos=[], error="Page not found"), 404
 
 @app.errorhandler(500)
 def internal_error(error):
-    """Handle 500 errors"""
     return render_template('index.html', todos=[], error="Internal server error"), 500
 
 if __name__ == '__main__':
