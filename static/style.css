@@ -1,0 +1,217 @@
+/* Custom styles for the todo app */
+
+:root {
+    --todo-completed-opacity: 0.6;
+    --todo-hover-bg: rgba(255, 255, 255, 0.05);
+    --animation-duration: 0.3s;
+}
+
+/* Body and general styling */
+body {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    min-height: 100vh;
+}
+
+/* Card styling */
+.card {
+    border: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    transition: box-shadow var(--animation-duration) ease;
+}
+
+.card:hover {
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.4);
+}
+
+/* Todo item styling */
+.todo-item {
+    border: none !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    transition: all var(--animation-duration) ease;
+    padding: 1rem;
+}
+
+.todo-item:hover {
+    background-color: var(--todo-hover-bg) !important;
+}
+
+.todo-item:last-child {
+    border-bottom: none !important;
+}
+
+.todo-item.completed {
+    opacity: var(--todo-completed-opacity);
+}
+
+.todo-item.completed .todo-title {
+    transition: all var(--animation-duration) ease;
+}
+
+.todo-item.completed .todo-description {
+    opacity: 0.7;
+}
+
+/* Checkbox styling */
+.todo-checkbox {
+    transition: transform var(--animation-duration) ease;
+}
+
+.todo-checkbox:hover {
+    transform: scale(1.1);
+}
+
+.todo-checkbox:focus {
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+/* Button animations */
+.btn {
+    transition: all var(--animation-duration) ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+/* Form styling */
+.form-control {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background-color: rgba(255, 255, 255, 0.05);
+    transition: all var(--animation-duration) ease;
+}
+
+.form-control:focus {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Alert styling */
+.alert {
+    border: none;
+    animation: slideInDown var(--animation-duration) ease;
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Filter button group */
+.btn-group .btn {
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.btn-group .btn:not(.btn-primary) {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Modal styling */
+.modal-content {
+    border: none;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Badge styling */
+.badge {
+    font-size: 0.7em;
+    padding: 0.3em 0.5em;
+}
+
+/* Loading state for forms */
+.btn[disabled] {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .container {
+        margin-top: 1rem !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    .display-4 {
+        font-size: 2rem;
+    }
+    
+    .todo-item {
+        padding: 0.75rem;
+    }
+    
+    .btn-group {
+        width: 100%;
+    }
+    
+    .btn-group .btn {
+        flex: 1;
+    }
+}
+
+/* Empty state styling */
+.text-center i[style*="font-size: 4rem"] {
+    opacity: 0.5;
+    margin-bottom: 1rem;
+}
+
+/* Smooth transitions for dynamic content */
+.list-group-item {
+    animation: fadeInUp 0.5s ease;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Focus states for accessibility */
+.btn:focus,
+.btn:focus-visible {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .todo-item {
+        border-bottom: 2px solid rgba(255, 255, 255, 0.3) !important;
+    }
+    
+    .form-control {
+        border: 2px solid rgba(255, 255, 255, 0.5);
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
